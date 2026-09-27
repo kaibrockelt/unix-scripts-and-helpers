@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# check if installed
+if ! command -v gpsbabel &> /dev/null; then
+    echo "Error: gpsbabel is not installed. install with  'sudo apt install gpsbabel' or 'brew install gpsbabel'."
+    exit 1
+fi
+
+count=0
+
+for file in *.[kK][mM][lL]; do
+    [ -e "$file" ] || continue
+    
+    filename="${file%.*}"
+    
+    echo "Converting $file to ${filename}.gpx"
+    
+    # the actual work
+    gpsbabel -i kml -f "$file" -o gpx -F "${filename}.gpx"
+    
+    ((count++))
+done
+
+echo "Finished! $count KMLs have been GPXed."

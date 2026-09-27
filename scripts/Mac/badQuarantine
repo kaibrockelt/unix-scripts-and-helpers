@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+if [ "$#" -ne 1 ]; then
+    echo "usage: badquarantine <file|directory>"
+    exit 1
+fi
+
+TARGET="$1"
+
+if [ ! -e "$TARGET" ]; then
+    echo "badquarantine: '$TARGET' not found" >&2
+    exit 1
+fi
+
+if [ -d "$TARGET" ]; then
+    echo "Removing quarantine attributes recursively from: $TARGET"
+    xattr -dr com.apple.quarantine "$TARGET"
+else
+    echo "Removing quarantine attribute from: $TARGET"
+    xattr -d com.apple.quarantine "$TARGET"
+fi

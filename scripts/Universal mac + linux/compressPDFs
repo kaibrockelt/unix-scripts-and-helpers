@@ -1,0 +1,137 @@
+#!/bin/bash
+# Usage: compressPdfs <input_directory> [--mode {color|gray|bw}] [--compression {normal|aggressive|brutal}]
+
+compressPDFs() {
+    # Defaults
+    local mode="gray"
+    local compression="normal"
+    local input_dir="$1"
+
+    # Parameter parsen
+    shift
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --mode)
+                mode="$2"
+                shift 2
+                ;;
+            --compression)
+                compression="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unbekannte Option: $1"
+                echo "Usage: $0 <input_directory> [--mode {color|gray|bw}] [--compression {normal|aggressive|brutal}]"
+                return 1
+                ;;
+        esac
+    done
+
+    # Input-Validierung
+    if [ -z "$input_dir" ] || [ ! -d "$input_dir" ]; then
+        echo "Fehler: Gib ein gültiges Input-Verzeichnis an!"
+        return 1
+    fi
+
+    # Output-Dir (enthält Modus + Kompressionsstufe)
+    local output_dir="${input_dir}/compressed_${mode}_${compression}"
+    mkdir -p "$output_dir"
+
+    # Ghostscript-Parameter basierend auf Modus
+    local gs_params=()
+    case "$mode" in
+        color)
+            gs_params+=(
+                -dProcessColorModel=/DeviceRGB
+                -dColorConversionStrategy=/RGB
+            )
+            ;;
+        gray|*)
+            gs_params+=(
+                -sColorConversionStrategy=Gray
+                -dProcessColorModel=/DeviceGray
+                -dOverrideICC=true
+            )
+            ;;
+        bw)
+            gs_params+=(
+                -sColorConversionStrategy=Gray
+                -dProcessColorModel=/DeviceGray
+                -dOverrideICC=true
+                -dGrayImageFilter=/FlateEncode
+                -dMonoImageFilter=/FlateEncode
+                -dAutoFilterColorImages=false
+                -dAutoFilterGrayImages=false
+            )
+            ;;
+    esac
+
+    # Kompressions-Presets (jetzt mit Biss!)
+    case "$compression" in
+        brutal)
+            gs_params+=(
+                -dPDFSETTINGS=/screen
+                -dColorImageResolution=80
+                -dGrayImageResolution=80
+                -dMonoImageResolution=80
+                -dJPEGQ=30
+                -dDownsampleColorImages=true
+                -dDownsampleGrayImages=true
+                -dDownsampleMonoImages=true
+                -dFastWebView=false  # <-- Hier deaktiviert!
+          )
+            ;;
+        aggressive)
+            gs_params+=(
+            -dPDFSETTINGS=/ebook
+            -dColorImageResolution=100
+            -dGrayImageResolution=100
+            -dMonoImageResolution=100
+            -dJPEGQ=50
+            -dFastWebView=false  # <-- Hier deaktiviert!
+        )
+            ;;
+        normal|*)
+            gs_params+=(
+                -dPDFSETTINGS=/ebook     # Deine Original-Einstellungen
+                -dColorImageResolution=200
+                -dGrayImageResolution=200
+                -dMonoImageResolution=200
+                -dJPEGQ=70
+            )
+            ;;
+    esac
+
+    # Verarbeitung
+    local processed=0
+    local failed=0
+
+    for input_file in "$input_dir"/*.pdf; do
+        [ ! -e "$input_file" ] && echo "Keine PDFs in $input_dir gefunden." && return 1
+
+        local base_name=$(basename "$input_file")
+        local output_file="${output_dir}/${base_name}"
+
+        echo -n "Komprimiere $base_name ($mode, $compression)... "
+        if gs -sDEVICE=pdfwrite -dNOPAUSE -dQUIET -dBATCH \
+               -dCompatibilityLevel=1.4 \
+               "${gs_params[@]}" \
+               -sOutputFile="$output_file" "$input_file"; then
+            # Erfolg: Dateigrößen vergleichen
+            local original_size=$(du -k "$input_file" | cut -f1)
+            local compressed_size=$(du -k "$output_file" | cut -f1)
+            local ratio=$((100 - (compressed_size * 100 / original_size)))
+            echo "Erfolg! ($original_size "KB → " $compressed_size "KB, " ${ratio}) "%"} Ersparnis)"
+            ((processed++))
+        else
+            echo "FEHLGESCHLAGEN!"
+            ((failed++))
+        fi
+    done
+
+    echo "---
+Fertig! $processed PDF(s) verarbeitet, $failed fehlgeschlagen.
+Ergebnisse in: $output_dir"
+}
+
+compressPDFs "$@"

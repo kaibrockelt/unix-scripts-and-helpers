@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# check if gpsbabel is installed
+if ! command -v gpsbabel &> /dev/null; then
+    echo "Error: gpsbabel is not installed. install with  'sudo apt install gpsbabel' or 'brew install gpsbabel'."
+    exit 1
+fi
+
+# Counter for counter reasons
+count=0
+
+# all gpx files, case insensitive
+for file in *.[gG][pP][xX]; do
+    # if exitsa
+    [ -e "$file" ] || continue
+    
+    # grab filename without ending
+    filename="${file%.*}"
+    
+    echo "Converting $file to ${filename}.kml"
+    
+    # Converting
+    gpsbabel -i gpx -f "$file" -o kml -F "${filename}.kml"
+    
+    ((count++))
+done
+
+echo "done! $count GPX Tracks have been KMLed."

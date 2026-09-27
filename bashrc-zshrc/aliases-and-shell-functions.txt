@@ -1,0 +1,34 @@
+
+##copy the parts that you like to your ~/.zshrc or ~/.bashrc accordingly
+
+
+
+## lazy human readable list
+alias ll='ls -lahG' 
+
+
+## up N script - statt cd ../../../ einfach "up 3"
+## CAREFUL: there's two variants.
+
+
+
+## BASH variant
+function up {
+[ "${1/[^0-9]/}" == "$1" ] && {
+        local ups=""
+        for i in $(seq 1 $1)
+        do
+                ups=$ups"../"
+        done
+        cd $ups
+        } || echo "usage: up INTEGER"
+}
+
+##ZSH Variant
+function up {
+    if [[ "$1" =~ '^[0-9]+$' ]]; then
+        cd "$(printf '../%.0s' {1..$1})"
+    else
+        echo "usage: up INTEGER"
+    fi
+}

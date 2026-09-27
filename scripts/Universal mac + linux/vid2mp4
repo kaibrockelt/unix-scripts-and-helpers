@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# vid2horst – konvertiert Videoformate zu MP4. Hängt "_converted" an, wenn der Input bereits MP4 ist.
+# Nutzung: vid2horst                 -> konvertiert alle passenden Dateien im Ordner
+#          vid2horst datei.xyz       -> konvertiert nur diese Datei
+
+convert_file() {
+  local input="$1"
+  local base_name="${input%.*}"
+  local extension="${input##*.}"
+  local output=""
+
+  # Nur reguläre Dateien verarbeiten (um z.B. Ordner auszuschließen)
+  if ! [ -f "$input" ]; then
+    return
+  fi
+
+  # Prüfen, ob die Datei überhaupt ein unterstütztes Videoformat ist
+  if ! [[ "$extension" =~ ^(mp4|avi|mov|mkv|flv|wmv|webm)$ ]]; then
+    echo "⚠️ Überspringe $input: Nicht unterstütztes Videoformat."
+    return 1
+  fi
+
+  # Logik für den Ausgabedateinamen
+  if [[ "$extension" == "mp4" ]]; then
+    # Wenn der Input MP4 ist, hängen wir "_converted" an, um Überschreiben zu verhindern
+    output="${base_name}_converted.mp4"
+  else
+    # Ansonsten wird es einfach in .mp4 umbenannt
+    output="${base_name}.mp4"
+  fi
+
+  echo "🌀 Konvertiere: $input -> $output"
+  # Füge '-y' hinzu, um die Bestätigungsaufforderung bei existierender Ausgabedatei zu unterdrücken
+#  ffmpeg -y -i "$input" -c:v libx264 -crf 23 -preset medium -c:a aac -b:a 192k "$output"
+##ffmpeg -y -i "$input" -c:v libx264 -crf 23 -preset medium -c:a aac -b:a 192k -hide_banner -stats "$output"
+## mit max30fps
+ffmpeg -hide_banner -stats -y -i "$input" -c:v libx264 -crf 23 -preset medium -vf "fps=fps=30:round=near" -c:a aac -b:a 192k "$output"
+##hardware encoding
+##ffmpeg -y -i "$input" -c:v hevc_videotoolbox -q:v 65 -preset fast -c:a aac -b:a 192k -hide_banner -stats "$output"
+}
+
+if [ -n "$1" ]; then
+  # Nur eine Datei verarbeiten
+  convert_file "$1"
+else
+  # Alle passenden Dateien im Ordner verarbeiten
+  for file in *; do
+    # Hier lassen wir mp4 wieder zu, da die Prüfung und Benennung in der Funktion erfolgt
+    if [[ -f "$file" && "$file" =~ \.(mp4|avi|mov|mkv|flv|wmv|webm)$ ]]; then
+      convert_file "$file"
+    fi
+  done
+fi
